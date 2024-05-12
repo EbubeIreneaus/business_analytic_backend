@@ -54,5 +54,4 @@ class Profile(models.Model):
                                                      ('other', 'Preferred not to say')))
     position = models.CharField(max_length=25)
 
-    def __str__(self):
-        return id
+
