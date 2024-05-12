@@ -55,3 +55,4 @@ class Profile(models.Model):
     position = models.CharField(max_length=25)
 
 
+
