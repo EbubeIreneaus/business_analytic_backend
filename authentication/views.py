@@ -2,6 +2,7 @@ import datetime
 import json
 
 from django.utils.timezone import make_aware
+from rest_framework.decorators import api_view
 
 from .forms import ProfileForm, UserForm
 from django.db import transaction, IntegrityError
@@ -13,9 +14,8 @@ from .models import User, Profile
 from Generator.generate import generateKey
 
 
-def send_email_verification(profileId):
-    key = generateKey(20)
-    key_duration = make_aware(datetime.datetime.now() + datetime.timedelta(hours=24))
+def send_email_verification(email, profileId, key):
+
     html_message = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ' \
                    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' \
                    '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" ' \
@@ -115,11 +115,6 @@ def send_email_verification(profileId):
               f"\n let us know. \n https://irbusinessanalytic.com/{profileId}/?key={key}"
 
     try:
-        profile = Profile.objects.get(id=profileId)
-        email = profile.user.email
-        profile.key = key
-        profile.key_duration = key_duration
-        profile.save()
         mail = EmailMultiAlternatives()
         mail.to = [email]
         mail.body = message
@@ -128,7 +123,7 @@ def send_email_verification(profileId):
         mail.attach_alternative(html_message, "text/html")
         mail.send()
     except Exception as e:
-        pass
+        print(str(e))
 
 
 # Create your views here.
@@ -174,3 +169,23 @@ class Auth(APIView):
         except Exception as e:
             return Response({"status": 'failed', "code": str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def send_verify_email(request):
+    profileId = request.GET.get('id')
+    key = generateKey(20)
+    key_duration = make_aware(datetime.datetime.now() + datetime.timedelta(hours=24))
+    try:
+        profile = Profile.objects.get(id=profileId)
+        email = profile.user.email
+        profile.key = key
+        profile.key_duration=key_duration
+        profile.save()
+        send_email_verification(email, profileId, key)
+        return Response({'status':'success'})
+    except Exception as e:
+        return Response({'status':'failed'})
+        print(str(e))
+
+
