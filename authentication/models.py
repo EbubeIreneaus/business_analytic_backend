@@ -53,6 +53,9 @@ class Profile(models.Model):
     gender = models.CharField(max_length=8, choices=(('female','Female'),('male', 'male'),
                                                      ('other', 'Preferred not to say')))
     position = models.CharField(max_length=25)
+    isEmailVerified = models.BooleanField(default=False)
+    key = models.CharField(max_length=30, null=True, blank=True)
+    key_duration = models.DateTimeField(null=True, blank=True)
 
 
 
