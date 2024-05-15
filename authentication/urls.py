@@ -3,5 +3,6 @@ from . import views
 
 urlpatterns = [
     path('', views.Auth.as_view()),
-    path('resend_verification_email/', views.send_verify_email)
+    path('resend_verification_email/', views.send_verify_email),
+    path('verify_user/', views.verifyUser)
 ]

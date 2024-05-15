@@ -188,4 +188,27 @@ def send_verify_email(request):
         return Response({'status':'failed'})
         print(str(e))
 
+@api_view(['POST'])
+def verifyUser(request):
+    data = json.loads(request.body)
+    profileId = int(data['profileId'])
+    key = data['key']
+    try:
+        profile = Profile.objects.get(id=profileId)
+        profilekey = profile.key
+        timeLimit = profile.key_duration
+        now = make_aware(datetime.datetime.now())
+        if key != profilekey:
+            return Response({'status':'failed', 'code':'key_mismatch'})
+        if now > timeLimit:
+            return Response({'status': 'failed', 'code': 'time_exceeded'})
+        profile.isEmailVerified = True
+        profile.key = None
+        profile.key_duration = None
+        profile.save()
+        return Response({'status': 'success'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'status': 'failed', 'code': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
