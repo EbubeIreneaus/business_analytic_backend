@@ -1,21 +1,20 @@
 import datetime
 import json
 
-from django.utils.timezone import make_aware
-from rest_framework.decorators import api_view
-
-from .forms import ProfileForm, UserForm
-from django.db import transaction, IntegrityError
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from django.core.mail import EmailMultiAlternatives
-from .models import User, Profile
+from django.db import transaction, IntegrityError
+from django.utils.timezone import make_aware
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from Generator.generate import generateKey
+from .forms import ProfileForm, UserForm
+from .models import User, Profile
 
 
 def send_email_verification(email, profileId, key):
-
     html_message = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ' \
                    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' \
                    '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" ' \
@@ -152,9 +151,9 @@ class Auth(APIView):
 
                 if user.is_valid() and profile.is_valid():
                     user = User.objects.create_user(email=user.cleaned_data['email'],
-                                                     first_name=user.cleaned_data['first_name'],
-                                                     last_name=user.cleaned_data['last_name'],
-                                                     password=data['password'])
+                                                    first_name=user.cleaned_data['first_name'],
+                                                    last_name=user.cleaned_data['last_name'],
+                                                    password=data['password'])
                     profile = profile.save(commit=False)
                     profile.user = user
                     profile.save()
@@ -170,6 +169,22 @@ class Auth(APIView):
             return Response({"status": 'failed', "code": str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def get(self, request):
+        email = request.GET.get('email', '')
+        password = request.GET.get('password', '')
+        try:
+            user = User.objects.get(email=email)
+            if not user.check_password(password):
+                return Response({'status': 'failed', 'code': 'incorrect_password'}, status=status.HTTP_404_NOT_FOUND)
+            profile = Profile.objects.get(user__id=user.id)
+            return Response({'status': 'success', 'isEmailVerified': profile.isEmailVerified, 'profileId': profile.id},
+                            status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'status': 'failed', 'code': 'user_not_found'}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({'status': 'failed', 'code': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 def send_verify_email(request):
@@ -180,18 +195,19 @@ def send_verify_email(request):
         profile = Profile.objects.get(id=profileId)
         email = profile.user.email
         profile.key = key
-        profile.key_duration=key_duration
+        profile.key_duration = key_duration
         profile.save()
         send_email_verification(email, profileId, key)
-        return Response({'status':'success'})
+        return Response({'status': 'success'})
     except Exception as e:
-        return Response({'status':'failed'})
+        return Response({'status': 'failed'})
         print(str(e))
+
 
 @api_view(['POST'])
 def verifyUser(request):
     data = json.loads(request.body)
-    profileId = int(data['profileId'])
+    profileId = data['profileId']
     key = data['key']
     try:
         profile = Profile.objects.get(id=profileId)
@@ -199,7 +215,9 @@ def verifyUser(request):
         timeLimit = profile.key_duration
         now = make_aware(datetime.datetime.now())
         if key != profilekey:
-            return Response({'status':'failed', 'code':'key_mismatch'})
+            return Response({'status': 'failed', 'code': 'key_mismatch'})
+        if profile.isEmailVerified == True:
+            return Response({'status': 'failed', 'code': 'already_verified'})
         if now > timeLimit:
             return Response({'status': 'failed', 'code': 'time_exceeded'})
         profile.isEmailVerified = True
@@ -209,6 +227,3 @@ def verifyUser(request):
         return Response({'status': 'success'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'status': 'failed', 'code': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
